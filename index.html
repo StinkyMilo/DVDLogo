@@ -1,0 +1,353 @@
+<head>
+    <title>DVD Logo Math!</title>
+</head>
+<body>
+    <style>
+        .parent{
+            display:flex;
+            width:100%;
+        }
+        .canvas{
+            flex:1;
+            margin:10px;
+            width:50%;
+        }
+        .record{
+            margin-right:20px;
+            width:50%;
+            border:1px solid #000000;
+        }
+    </style>
+    <div class="parent">
+        <div class="canvas">
+            <canvas id="main" width="400" height="400" style="border:1px solid #000000"></canvas>
+            <p id="currentFrame"></p>
+            <p id="prediction"></p>
+        </div>
+        <div id="record" class="record"><p>Record:</p></div>
+    </div>
+    <script>
+        /*
+        Features to add:
+            DVD logo bouncing around the screen
+            Guesser for the time it'll hit the corner
+            Record of corner hitting
+            Guess which corner
+
+            Haven't found one more than hitting 2 corners, so next question is: 
+                is it possible to hit all 4 corners? If not, prove it.
+
+                No. It should only be able to hit a max. of two corners.
+                Because the velocity is reversed when you hit a corner, 
+                that means the logo will just reverse its previous motion. 
+                Therefore, if corner B is hit after corner A, then corner A must
+                also be hit after corner B. Though the next question is is it possible
+                to hit only 1 corner?
+
+                It should not be possible to hit only 1 corner. Here's why:
+
+                (Assume in this case we're engineering a scenario where we hit
+                the bottom left corner only. We can extend this argument for
+                any corner.)
+
+                Let's say the horizontal length of the screen is l and the
+                horizontal distance between each time the logo hits the bottom
+                of the screen is x. 2l must then be a multiple of x (to hit the
+                same corner it started in), l must not be a multiple of x (to avoid
+                hitting the bottom left corner), and l must not be a multiple of x/2
+                (to avoid hitting the top left corner). This is unsolvable, as 
+                for any number that 2l divides but l does not divide, l must divide
+                half of it. Again, here's why:
+
+                If x divides 2l but not l, x must be 2 times a factor of l. If x is
+                2 times a factor of l, then l divides x/2.
+
+                It's possible to hit 0 or 2, not 3 or 4. 1 is still unknown
+
+            Allow the user to jump to a specific frame.
+            Customizable
+                Starting DVD Speed
+                Starting DVD Location
+                DVD Size
+                Canvas width and height
+                Time scale
+
+        Follow-up question:
+        Is it possible to make a DVD logo that hits all 4 corners?
+            To answer this, separately calculate intervals for hitting specifically the
+                top
+                bottom
+                left
+                right
+            see which are possible and which aren't.
+
+        Guesser outline:
+            1. Calculate GCD of xPeriod and yPeriod, = g
+            2. check if xOffset % g == yOffset % g
+                a. If not, abort. Will never hit the corner
+            3. Set up equation u*xPeriod + v*yPeriod = g and solve for u and v
+            4. Answer should be (xOffset*v*yPeriod + yOffset*u*xPeriod)/g.
+
+        */
+        var c = document.getElementById("main");
+        var ctx = c.getContext("2d");
+        const dvdImage = new Image();
+        dvdImage.src = "DVD_logo.png";
+
+        // //Never hits the corner:
+        // c.width=400;
+        // c.height=400;
+        // var dvdScale = {w:105,h:54};
+        // var dvdPos = {x:50,y:50};
+        // var dvdStartSpd = {x:3,y:4};
+
+        // c.width=400;
+        // c.height=400;
+        // var dvdScale = {w:105,h:54};
+        // var dvdPos = {x:50,y:25};
+        // var dvdStartSpd = {x:3,y:3};
+        // //First hit: 1963
+
+        // c.width=300;
+        // c.height=400;
+        // var dvdScale = {w:105,h:54};
+        // var dvdPos = {x:3,y:0};
+        // var dvdStartSpd = {x:4,y:3};
+
+        // c.width=505;
+        // c.height=304;
+        // var dvdScale={w:105,h:54};
+        // var dvdPos = {x:300,y:200};
+        // var dvdStartSpd = {x:5,y:5};
+
+        c.width=400;
+        c.height=400;
+        var dvdScale={w:50,h:50};
+        var dvdPos = {x:348,y:343};
+        //200 x pixels to every 700 y pixels
+        var dvdStartSpd = {x:2,y:7};
+
+        var dvdSpd = {x:dvdStartSpd.x,y:dvdStartSpd.y};
+        var frame = 0;
+
+        dvdImage.onload=function(){
+            startProgram();
+        }
+
+        var mainLoop;
+        const frameText = document.getElementById("currentFrame");
+        const predictionText = document.getElementById("prediction");
+        const recordDiv = document.getElementById("record");
+        var cornerInterval;
+        var initialCorner;
+        var cornerList;
+        var numHits = 0;
+
+        var nextPredictedHit;
+
+        function getPredictionText(){
+            if(nextPredictedHit=="never"){
+                return "Next Hit: Never";
+            }
+            return "Next Hit: " + cornerList[numHits%cornerList.length] + " corner on frame " + nextPredictedHit;
+        }
+
+        function startProgram(){
+            var cornerPrediction = predictCornerHit(dvdPos.x,dvdPos.y,dvdStartSpd.x,dvdStartSpd.y,c.width,c.height,dvdScale.w,dvdScale.h);
+            console.log(cornerPrediction);
+            initialCorner=cornerPrediction.initial;
+            cornerInterval=cornerPrediction.interval;
+            cornerList=cornerPrediction.whichCorner;
+            nextPredictedHit=initialCorner;
+            if(nextPredictedHit==0){
+                nextPredictedHit+=cornerInterval;
+                numHits++;
+            }
+            predictionText.innerHTML=getPredictionText();
+            mainLoop = setInterval(doMainLoop,10);    
+        }
+        
+
+        function doMainLoop(){
+            ctx.clearRect(0,0,c.width,c.height);
+            ctx.drawImage(dvdImage,dvdPos.x,dvdPos.y,dvdScale.w,dvdScale.h);
+            dvdPos.x+=dvdSpd.x;
+            dvdPos.y+=dvdSpd.y;
+            frame++;
+            frameText.innerHTML = "Frame: " + frame;
+            var hitTop, hitBottom, hitLeft, hitRight;
+            var passedBoth = 0;
+            if(dvdPos.x <= 0 || dvdPos.x + dvdScale.w >= c.width){
+                var oldX = dvdPos.x;
+                if(dvdPos.x<=0){
+                    hitLeft=true;
+                    // dvdPos.x=0;
+                }else{
+                    hitRight=true;
+                    // dvdPos.x = c.width-dvdScale.w;
+                }
+                //console.log("Old X: " + oldX + ", new X: " + dvdPos.x);
+                dvdSpd.x*=-1;
+                passedBoth++;
+                console.log("Hit " + (hitLeft?"left":"right") + " edge on frame " + frame);
+            }
+            if(dvdPos.y <= 0 || dvdPos.y + dvdScale.h >= c.height){
+                var oldY = dvdPos.y;
+                if(dvdPos.y<=0){
+                    hitTop=true;
+                    // dvdPos.y=0;
+                }else{
+                    hitBottom=true;
+                    // dvdPos.y=c.height-dvdScale.h;
+                }
+                //console.log("Old Y: " + oldY + ", new Y: " + dvdPos.y);
+                dvdSpd.y*=-1;
+                passedBoth++;
+                console.log("Hit " + (hitTop?"top":"bottom") + " edge on frame " + frame);
+            }
+            if(passedBoth==2){
+                var cornerStr = (hitTop?"Top":"Bottom")+" "+(hitLeft?"left":"right");
+                var fullCornerStr = "Hit the " + cornerStr + " corner on frame " + frame;
+                console.log(fullCornerStr.toUpperCase());
+                recordDiv.innerHTML+="<p>"+fullCornerStr+"</p>";   
+                nextPredictedHit+=cornerInterval;
+                numHits++;
+                predictionText.innerHTML=getPredictionText();
+            }
+        }
+
+        function period(startX,startY,xSpd,ySpd,cWidth,cHeight,dvdWidth,dvdHeight){
+            //returns {offset:__,period:__}
+            var outputObj = {offset:{x:null,y:null},period:{x:null,y:null}};
+            var initialOvershootX;
+            var initialOvershootY;
+            if(xSpd>0){
+                var endPosX = cWidth - dvdWidth;
+                outputObj.offset.x = Math.ceil((endPosX - startX)/xSpd);
+                initialOvershootX=(outputObj.offset.x*xSpd)-(endPosX-startX);
+                outputObj.period.x = Math.ceil((cWidth-dvdWidth+initialOvershootX)/xSpd);
+            }else if(xSpd<0){
+                outputObj.offset.x = Math.ceil(-startX/xSpd);
+                initialOvershootX=-outputObj.offset.x*xSpd-startX;
+                outputObj.period.x = Math.ceil((dvdWidth-cWidth-initialOvershootX)/xSpd);
+            }
+            if(ySpd>0){
+                var endPosY = cHeight - dvdHeight;
+                outputObj.offset.y = Math.ceil((endPosY-startY)/ySpd);
+                initialOvershootY=(outputObj.offset.y*ySpd)-(endPosY-startY);
+                outputObj.period.y = Math.ceil((cHeight-dvdHeight+initialOvershootY)/ySpd);
+            }else if(ySpd<0){
+                outputObj.offset.y = Math.ceil(-startY/ySpd);
+                initialOvershootY=-outputObj.offset.y*ySpd-startY;
+                outputObj.period.y = Math.ceil((dvdHeight-cHeight-initialOvershootY)/ySpd);
+            }
+            console.log(initialOvershootX + " " + initialOvershootY);
+            return outputObj;
+        }
+
+        //Yo this actually worked first try I'm cool.
+        function gcd(x,y){
+            //Make sure x represents the greater value
+            var swapped=false;
+            if(x<y){
+                var temp = x;
+                x=y;
+                y=temp;
+                swapped=true;
+            }
+            return gcdHelper(x,y,0,1,1,0,swapped);
+        }
+
+        function gcdHelper(x,y,s,t,oldS,oldT,swapped){
+            var remainder = x%y;
+            var quotient = (x-remainder)/y;
+
+            var temp = s;
+            s=oldS-quotient*s;
+            oldS=temp;
+
+            temp = t;
+            t=oldT-quotient*t;
+            oldT=temp;
+
+            if(remainder==0){
+                if(swapped){
+                    return {gcd:y,coefficients:{s:oldT,t:oldS}};
+                }
+                return {gcd:y,coefficients:{s:oldS,t:oldT}};
+            }
+            return gcdHelper(y,remainder,s,t,oldS,oldT,swapped);
+        }
+
+        function positiveMod(x,y){
+            var sol = x%y;
+            while(sol<0){
+                sol+=y;
+            }
+            return sol;
+        }
+
+        function chineseRemainder(xOffset,yOffset,xPeriod,yPeriod){
+            xOffset%=xPeriod;
+            yOffset%=yPeriod;
+            var gcdResult = gcd(xPeriod,yPeriod);
+            var g = gcdResult.gcd;
+            console.log(gcdResult);
+            if(xOffset%g != yOffset%g){
+                return {initial:"never",interval:" oops i was wrong"};
+            }
+            var coef = gcdResult.coefficients;
+            var rawSol = (xOffset*coef.t*yPeriod + yOffset*coef.s*xPeriod)/g;
+            var interval = (xPeriod*yPeriod)/g;
+            console.log(rawSol);
+            return {initial:positiveMod(rawSol,interval),interval:interval};
+        }
+
+        function getCornerHit(startSideHorizontal,startSideVertical,time,offset,period){
+            var timesBouncedHorizontal, timesBouncedVertical;
+            if(time < offset.x){
+                timesBouncedHorizontal=0;
+            }else{
+                timesBouncedHorizontal=1+Math.floor((time-offset.x)/period.x);
+            }
+            if(time < offset.y){
+                timesBouncedVertical=0;
+            }else{
+                timesBouncedVertical=1+Math.floor((time-offset.y)/period.y);
+            }
+            var text;
+            if(timesBouncedVertical%2==startSideVertical){
+                text="Bottom";
+            }else{
+                text="Top";
+            }
+            if(timesBouncedHorizontal%2==startSideHorizontal){
+                text+=" right";
+            }else{
+                text+=" left";
+            }
+            return text;
+        }
+
+        function predictCornerHit(startX,startY,xSpd,ySpd,cWidth,cHeight,dvdWidth,dvdHeight){
+            var p = period(startX,startY,xSpd,ySpd,cWidth,cHeight,dvdWidth,dvdHeight);
+            console.log(p);
+            var intervals = chineseRemainder(p.offset.x,p.offset.y,p.period.x,p.period.y);
+            var firstHorzontalWall=xSpd>0?1:0;
+            var firstVerticalWall = ySpd>0?1:0;
+            var whichCorner = [];
+            var time = intervals.initial;
+            var thisCorner = getCornerHit(firstHorzontalWall,firstVerticalWall,time,p.offset,p.period);
+            while(whichCorner.indexOf(thisCorner)==-1){
+                whichCorner.push(thisCorner);
+                time+=intervals.interval;
+                thisCorner = getCornerHit(firstHorzontalWall,firstVerticalWall,time,p.offset,p.period);
+            }
+            intervals.whichCorner=whichCorner;
+            return intervals;
+        }
+
+        
+
+    </script>
+</body>
