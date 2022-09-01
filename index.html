@@ -15,8 +15,10 @@
             border:1px solid #000000;
             overflow: auto;
             margin-top:10px;
+            background-color: antiquewhite;
         }
         .controls{
+            background-color: antiquewhite;
             border: 1px solid #000000;
             margin-right:20px;
             margin-top:10px;
@@ -30,7 +32,13 @@
             float:right;
             width:40%;
         }
+        .slider{
+            border-radius:5px;
+            margin-top:10px;
+            accent-color: #277e31;
+        }
     </style>
+    <canvas hidden id="dvdvas" width="100" height="54" style="border:1px solid #000000"></canvas>
     <div>
         <div class="left">
             <div class="canvas">
@@ -42,20 +50,30 @@
         <div class="right">
             <div id="record" class="record"><p>Record:</p></div>
             <div id="controls" class="controls">
-                Width: <input type="range" min="110" max="700" value="400" class="slider" id="width-slider">
-                <span id="width-text">400</span>
-                Height: <input type="range" min="110" max="700" value="400" class="slider" id="height-slider">
-                <span id="height-text">400</span>
-                Start X: <input type="range" min="0" max="595" value="0" class="slider" id="Start X-slider">
-                <span id="Start X-text">0</span>
-                Start Y: <input type="range" min="0" max="595" value="400" class="slider" id="Start Y-slider">
-                <span id="Start Y-text">400</span>
-                Start Speed X: <input type="range" min="-7" max="7" value="400" class="slider" id="Start Speed X-slider">
-                <span id="Start Speed X-text">400</span>
-                <br/>
-                Start Speed Y: <input type="range" min="-7" max="7" value="400" class="slider" id="Start Speed Y-slider">
-                <span id="Start Speed Y-text">400</span>
-                <br/>
+                <div class="sliderStuff">
+                    Width: <input type="range" min="110" max="700" value="400" class="slider" id="width-slider">
+                    <span id="width-text">400</span>
+                </div>
+                <div class="sliderStuff">
+                    Height: <input type="range" min="110" max="700" value="400" class="slider" id="height-slider">
+                    <span id="height-text">400</span>
+                </div>
+                <div class="sliderStuff">
+                    Start X: <input type="range" min="0" max="595" value="0" class="slider" id="Start X-slider">
+                    <span id="Start X-text">0</span>
+                </div>
+                <div class="sliderStuff">
+                    Start Y: <input type="range" min="0" max="595" value="0" class="slider" id="Start Y-slider">
+                    <span id="Start Y-text">0</span>
+                </div>
+                <div class="sliderStuff">
+                    Start Speed X: <input type="range" min="-7" max="7" value="2" class="slider" id="Start Speed X-slider">
+                    <span id="Start Speed X-text">2</span>
+                </div>
+                <div class="sliderStuff">
+                    Start Speed Y: <input type="range" min="-7" max="7" value="2" class="slider" id="Start Speed Y-slider">
+                    <span id="Start Speed Y-text">2</span>
+                </div>
                 <button id="applyChanges">Go!</button>
             </div>
         </div>
@@ -123,6 +141,11 @@
             4. Answer should be (xOffset*v*yPeriod + yOffset*u*xPeriod)/g.
 
         */
+
+        function randint(min,max){
+            return Math.floor((Math.random()*(max-min))+min);
+        }
+
         var c = document.getElementById("main");
         var ctx = c.getContext("2d");
         const dvdImage = new Image();
@@ -154,12 +177,14 @@
         // var dvdPos = {x:300,y:200};
         // var dvdStartSpd = {x:5,y:5};
 
-        c.width=450;
+        c.width=400;
         c.height=400;
         var dvdScale={w:100,h:54};
-        var dvdPos = {x:100,y:300};
+        var dvdPos = {x:0,y:0};
         //200 x pixels to every 700 y pixels
-        var dvdStartSpd = {x:3,y:4};
+        var dvdStartSpd = {x:2,y:2};
+
+        var dvdColor = [randint(0,255),randint(0,60)];
 
         var dvdSpd = {x:dvdStartSpd.x,y:dvdStartSpd.y};
 
@@ -172,12 +197,15 @@
         const predictionText = document.getElementById("prediction");
         const recordDiv = document.getElementById("record");
         const changeButton = document.getElementById("applyChanges");
+        const dvdCanvas = document.getElementById("dvdvas");
         var frame = 0;
         var cornerInterval;
         var initialCorner;
         var cornerList;
         var numHits = 0;
         var nextPredictedHit;
+
+        var dctx = dvdCanvas.getContext("2d");
 
         var sliders={
             "width":{
@@ -228,7 +256,16 @@
             c.height=sliders.height.slider.value;
             dvdPos = {x:parseInt(sliders["Start X"].slider.value),y:parseInt(sliders["Start Y"].slider.value)};
             dvdSpd = {x:parseInt(sliders["Start Speed X"].slider.value),y:parseInt(sliders["Start Speed Y"].slider.value)};
-            startProgram();
+            if(dvdSpd.x == 0 || dvdSpd.y==0){
+                frameText.innerHTML="Error: X or Y Speed is 0.";
+            }else if(dvdPos.x + dvdScale.w > c.width || dvdPos.y + dvdScale.h > c.height){
+                frameText.innerHTML="Error: Logo starts offscreen.";
+            }else if((dvdPos.x==0 && dvdSpd.x < 0) || (dvdPos.y==0 && dvdSpd.y < 0) || (dvdPos.x==c.width-dvdScale.w && dvdSpd.x>0) || (dvdPos.y==c.height-dvdScale.h && dvdSpd.y>0)){
+                frameText.innerHTML="Error: Logo immediately moves offscreen."
+            }else{
+                startProgram();
+
+            }
         }
 
         function getPredictionText(){
@@ -238,7 +275,17 @@
             return "Next Hit: " + cornerList[numHits%cornerList.length] + " corner on frame " + nextPredictedHit;
         }
 
+        function updateDvdColor(){
+            dctx.globalCompositeOperation="source-over";
+            dctx.fillStyle=getHsv(dvdColor);
+            dctx.fillRect(0,0,dvdScale.w,dvdScale.h);
+            dctx.globalCompositeOperation="destination-in";
+            dctx.drawImage(dvdImage,0,0,dvdScale.w,dvdScale.h);
+        }
+
         function startProgram(){
+            updateDvdColor();
+
             frame = 0;
             numHits = 0;
             nextPredictedHit=null;
@@ -258,11 +305,16 @@
             predictionText.innerHTML=getPredictionText();
             mainLoop = setInterval(doMainLoop,10);    
         }
-        
 
+        function getHsv(colorList){
+            return "hsl("+colorList[0]+",100%,"+(colorList[1]+35)+"%)";
+        }
+        
+        
         function doMainLoop(){
-            ctx.clearRect(0,0,c.width,c.height);
-            ctx.drawImage(dvdImage,dvdPos.x,dvdPos.y,dvdScale.w,dvdScale.h);
+            ctx.fillStyle="#000000";
+            ctx.fillRect(0,0,c.width,c.height);
+            ctx.drawImage(dvdCanvas,dvdPos.x,dvdPos.y);
             dvdPos.x+=dvdSpd.x;
             dvdPos.y+=dvdSpd.y;
             frame++;
@@ -282,6 +334,8 @@
                 dvdSpd.x*=-1;
                 passedBoth++;
                 console.log("Hit " + (hitLeft?"left":"right") + " edge on frame " + frame);
+                dvdColor[0]=(dvdColor[0]+20)%255;
+                updateDvdColor();
             }
             if(dvdPos.y <= 0 || dvdPos.y + dvdScale.h >= c.height){
                 var oldY = dvdPos.y;
@@ -296,6 +350,8 @@
                 dvdSpd.y*=-1;
                 passedBoth++;
                 console.log("Hit " + (hitTop?"top":"bottom") + " edge on frame " + frame);
+                dvdColor[1]=(dvdColor[1]+10)%60;
+                updateDvdColor();
             }
             if(passedBoth==2){
                 var cornerStr = (hitTop?"Top":"Bottom")+" "+(hitLeft?"left":"right");
