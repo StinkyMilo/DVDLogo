@@ -78,6 +78,8 @@
             </div>
         </div>
     </div>
+    <script src="jszip.min.js"></script>
+    <script src="FileSaver.min.js"></script>
     <script>
         /*
         Features to add:
@@ -177,12 +179,17 @@
         // var dvdPos = {x:300,y:200};
         // var dvdStartSpd = {x:5,y:5};
 
-        c.width=400;
-        c.height=400;
+        var pictureMode = false;
+        var pictureStart = 44683;
+        var pictureCount = 44686;
+        var pictures = [];
+
+        c.width=640;
+        c.height=480;
         var dvdScale={w:100,h:54};
-        var dvdPos = {x:0,y:0};
+        var dvdPos = {x:241,y:259};
         //200 x pixels to every 700 y pixels
-        var dvdStartSpd = {x:2,y:2};
+        var dvdStartSpd = {x:3,y:3};
 
         var dvdColor = [randint(0,255),randint(0,60)];
 
@@ -303,7 +310,24 @@
                 numHits++;
             }
             predictionText.innerHTML=getPredictionText();
-            mainLoop = setInterval(doMainLoop,10);    
+            if(pictureMode){
+                var zip = new JSZip();
+                var folder = zip.folder("DVD");
+                for(var i = 0; i < pictureCount; i++){
+                    doMainLoop();
+                    if(i>=pictureStart){
+                        var img = c.toDataURL("image/png");
+                        var idx = img.indexOf('base64,')+'base64,'.length;
+                        var content = img.substring(idx);
+                        folder.file("frame"+frame+".png",content,{base64:true});
+                    }
+                }
+                zip.generateAsync({type:"blob"}).then(function(content){
+                    saveAs(content,"DVD.zip");
+                });
+            }else{
+                mainLoop = setInterval(doMainLoop,10);
+            }    
         }
 
         function getHsv(colorList){
