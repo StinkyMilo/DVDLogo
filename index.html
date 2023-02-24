@@ -180,16 +180,19 @@
         // var dvdStartSpd = {x:5,y:5};
 
         var pictureMode = false;
-        var pictureStart = 44683;
-        var pictureCount = 44686;
+        var drawPath = false;
+        var pathPositions = [];
+        var pathLength=500;
+        var pictureStart = 2800;
+        var pictureCount = 3300;
         var pictures = [];
 
-        c.width=640;
-        c.height=480;
+        c.width=400;
+        c.height=400;
         var dvdScale={w:100,h:54};
-        var dvdPos = {x:241,y:259};
+        var dvdPos = {x:0,y:0};
         //200 x pixels to every 700 y pixels
-        var dvdStartSpd = {x:3,y:3};
+        var dvdStartSpd = {x:2,y:2};
 
         var dvdColor = [randint(0,255),randint(0,60)];
 
@@ -334,15 +337,27 @@
             return "hsl("+colorList[0]+",100%,"+(colorList[1]+35)+"%)";
         }
         
-        
         function doMainLoop(){
             ctx.fillStyle="#000000";
             ctx.fillRect(0,0,c.width,c.height);
+            ctx.fillStyle="#ff0000";
+            for(var i = 0; i < pathPositions.length; i++){
+                ctx.fillRect(pathPositions[i].x,pathPositions[i].y,4,4);
+            }
             ctx.drawImage(dvdCanvas,dvdPos.x,dvdPos.y);
             dvdPos.x+=dvdSpd.x;
             dvdPos.y+=dvdSpd.y;
             frame++;
+            if(drawPath){
+                pathPositions.push({x:dvdPos.x+dvdScale.w/2-2,y:dvdPos.y+dvdScale.h/2-2});
+                if(pathPositions.length > pathLength){
+                    pathPositions.splice(0,1);
+                }
+            }
             frameText.innerHTML = "Frame: " + frame;
+            // ctx.fillStyle="#ffffff";
+            // ctx.font = '20px Courier';
+            // ctx.fillText("Frame: " + frame,0,c.height);
             var hitTop, hitBottom, hitLeft, hitRight;
             var passedBoth = 0;
             if(dvdPos.x <= 0 || dvdPos.x + dvdScale.w >= c.width){
